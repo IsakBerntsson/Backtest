@@ -70,19 +70,31 @@ class Backtester:
         df_signals = self.hist_data.rolling(window).apply(applicable).dropna()
         self.signals = df_signals
 
-    def plot_trades(self, buy_dict : dict, sell_dict : dict):
+    def plot_trades(self, buy_dict : dict, sell_dict : dict, normalize = False):
+        """[will plot c]
+
+        Args:
+            buy_dict (dict): [description]
+            sell_dict (dict): [description]
+        """
         
+        
+        if normalize:
+            data = self.hist_data/self.hist_data.loc[0,:]
+        else:
+            data = self.hist_data
+            
         for tick in buy_dict:
             
             dates = [trade["date"] for trade in buy_dict[tick]]
-            prices = self.hist_data.loc[dates,tick]
+            prices = data.loc[dates,tick]
             plt.scatter(dates, prices, c="green", marker="^")
             
             dates = [trade["date"] for trade in sell_dict[tick]]
-            prices = self.hist_data.loc[dates,tick]
+            prices = data.loc[dates,tick]
             plt.scatter(dates, prices, c="red", marker="v")
             
-            plt.plot(self.hist_data.loc[:,tick], alpha = .7,label = tick)
+            plt.plot(data.loc[:,tick], alpha = .7,label = tick)
         
         plt.legend(loc = "upper left")
         plt.show()
@@ -99,7 +111,8 @@ class Backtester:
         held = []
         sell_dict = defaultdict(list)
         for date in self.signals.index:
-            for tick in self.signals.columns:
+            for tick in self.signals.columns: #looping throung data with buy_func applied
+                
                 curr_price = self.hist_data[tick][date]
                 buy = self.signals[tick][date]
                 holds = tick in held
@@ -108,7 +121,8 @@ class Backtester:
                                            "date":date})
                     held.append(tick)
                     continue
-                elif holds:
+                
+                elif holds: #stock owned, cant buy. Check sell/exit func
                     if self.sell_signal_func(buy_dict[tick][-1]["price"],curr_price):
                         sell_dict[tick].append({"price":curr_price,
                                                 "date":date})
@@ -159,10 +173,12 @@ class Backtester:
 
 
 if __name__ == "__main__":
+    
     def buy_func_placeholder(window):
         return np.max(window)>1.075*window[-1]
     def sell_func_placeholder(buy_price, curr_price):
         return curr_price > 1.1*buy_price or curr_price < .95*buy_price
+    
     my_backtester = Backtester(buy_func_placeholder,sell_func_placeholder)
     my_backtester.download_data(tickers=["MSFT","AAPL","V", "AMD"], period = ("2016-01-01","2020-01-01"))
     print(my_backtester.hist_data.head())
