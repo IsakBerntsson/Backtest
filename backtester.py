@@ -70,11 +70,29 @@ class Backtester:
         df_signals = self.hist_data.rolling(window).apply(applicable).dropna()
         self.signals = df_signals
 
-    
-    def simulate_trading(self):
+    def plot_trades(self, buy_dict : dict, sell_dict : dict):
+        
+        for tick in buy_dict:
+            
+            dates = [trade["date"] for trade in buy_dict[tick]]
+            prices = self.hist_data.loc[dates,tick]
+            plt.scatter(dates, prices, c="green", marker="^")
+            
+            dates = [trade["date"] for trade in sell_dict[tick]]
+            prices = self.hist_data.loc[dates,tick]
+            plt.scatter(dates, prices, c="red", marker="v")
+            
+            plt.plot(self.hist_data.loc[:,tick], alpha = .7,label = tick)
+        
+        plt.legend(loc = "upper left")
+        plt.show()
+        
+        return
+            
+    def simulate_trading(self, plottrades:bool = False):
         if self.signals is None:
             self.apply_buy_func(window=10)
-            print(self.signals.sum())
+            
             
         buy_dict = defaultdict(list)
        
@@ -102,6 +120,9 @@ class Backtester:
             last_price = self.hist_data[tick][last_date]
             sell_dict[tick].append({"price":last_price,
                                                 "date":last_price})
+
+        if plottrades:
+            self.plot_trades(buy_dict,sell_dict)
             
         return dict(buy_dict), dict(sell_dict)
     
@@ -116,7 +137,7 @@ class Backtester:
             if buy_prices is None:
                 ret = 0
             else:
-                ret = (np.sum(sell_prices) / np.sum(buy_prices)) -1 
+                ret = round((np.sum(sell_prices) / np.sum(buy_prices)) -1,4)
             all_returns.append(ret)
             
             num_trades = len(sell_prices)
@@ -125,8 +146,11 @@ class Backtester:
                 "returns":ret,
                 "num_trades":num_trades
                 }
-       
         return results
+    
+   
+        
+        
 
 
 
@@ -136,14 +160,14 @@ class Backtester:
 
 if __name__ == "__main__":
     def buy_func_placeholder(window):
-        return np.max(window)>1.5*window[-1]
+        return np.max(window)>1.075*window[-1]
     def sell_func_placeholder(buy_price, curr_price):
-        return curr_price > 1.05*buy_price or curr_price < .95*buy_price
+        return curr_price > 1.1*buy_price or curr_price < .95*buy_price
     my_backtester = Backtester(buy_func_placeholder,sell_func_placeholder)
-    my_backtester.download_data(tickers=["MSFT","AAPL","V", "XOM"], period = ("2016-01-01","2020-01-01"))
+    my_backtester.download_data(tickers=["MSFT","AAPL","V", "AMD"], period = ("2016-01-01","2020-01-01"))
     print(my_backtester.hist_data.head())
     
-    buy_dict, sell_dict = my_backtester.simulate_trading()
+    buy_dict, sell_dict = my_backtester.simulate_trading(plottrades=True)
+    #print(buy_dict)
     res = my_backtester.calculate_returns(buy_dict, sell_dict)
     print(res)
-    
